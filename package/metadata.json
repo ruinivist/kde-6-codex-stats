@@ -1,7 +1,7 @@
 {
     "KPlugin": {
         "Name": "Codex Token Stats",
-        "Description": "A minimal base for Codex token stats",
+        "Description": "Codex tokens over the last 24 hours and API-equivalent cost estimates",
         "Icon": "view-statistics",
         "Category": "System Information",
         "Id": "de.ruiny.codextokenstats",

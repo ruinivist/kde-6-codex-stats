@@ -3,7 +3,7 @@
 A compact KDE Plasma 6 panel widget for locally saved Codex tokens over the last 24 hours:
 
 ```text
-1.3Mil (1.1Mil / 200K) | ~$2.87
+1.3Mil (1.1Mil / 200K) | $2.87
 ```
 
 Click to open **Codex Token Stats**, with exact grouped counts and estimated

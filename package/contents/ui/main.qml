@@ -146,7 +146,7 @@ PlasmoidItem {
 
         PlasmaComponents.Label {
             id: usage
-            text: Format.compact(root.count("total")) + " (" + Format.compact(root.count("input")) + " / " + Format.compact(root.count("output")) + ") | " + (root.cost("total") === null ? "--" : "~" + Format.dollars(root.cost("total")))
+            text: Format.compact(root.count("total")) + " (" + Format.compact(root.count("input")) + " / " + Format.compact(root.count("output")) + ") | " + (root.cost("total") === null ? "--" : Format.dollars(root.cost("total")))
             color: "white"
             font.family: "monospace"
         }

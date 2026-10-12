@@ -3,7 +3,12 @@
 .env
 .env.*
 !.env.example
+.codex/
+.venv/
 .directory
 *.swp
+*.swo
 *~
 __pycache__/
+*.py[cod]
+.pytest_cache/

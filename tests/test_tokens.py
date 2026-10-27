@@ -144,6 +144,22 @@ class RollingUsageTests(unittest.TestCase):
         self.assertAlmostEqual(result["costs"]["total"], 0.554 + 0.1103004 + 0.03)
         self.assertEqual(result["status"], "ok")
 
+    def test_terra_pricing_with_sol_across_tiers_and_contexts(self):
+        for tier, multiplier in [(None, 1), ("fast", 2), ("priority", 2), ("batch", 0.5), ("flex", 0.5)]:
+            for size, terra_cost in [(272000, 0.2655), (272001, 0.528502)]:
+                with self.subTest(tier=tier, input_tokens=size):
+                    self.write([context(), response("sol", input_tokens=1000, cached_input_tokens=0,
+                                                   output_tokens=1000, reasoning_output_tokens=0),
+                                context("gpt-6.1-terra", tier),
+                                response("terra", input_tokens=size, cached_input_tokens=20000,
+                                         cache_write_input_tokens=30000, output_tokens=1000,
+                                         reasoning_output_tokens=0)])
+                    result = self.read()
+                    self.assertEqual(result["status"], "ok")
+                    self.assertTrue(result["pricing_complete"])
+                    self.assertEqual(result["counts"]["total"], size + 3000)
+                    self.assertAlmostEqual(result["costs"]["total"], 0.012 + terra_cost * multiplier)
+
     def test_explicit_response_metadata_overrides_turn(self):
         record = response(input_tokens=1000, cached_input_tokens=0, output_tokens=1000, reasoning_output_tokens=0)
         record["payload"].update(model="gpt-6-astra", service_tier="ultrafast")

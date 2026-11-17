@@ -19,7 +19,7 @@ FIELDS = {
 CATEGORIES = ("total", "input", "uncached", "cache_read", "cache_write", "output", "reasoning")
 
 
-def response_cost(counts, model, tier, prices):
+def response_cost(counts, model, tier, prices, stamp):
     """Price one response using its actual input size and recorded service tier.
     The usage reader sums these costs; reasoning remains a subset of output.
     """
@@ -27,15 +27,19 @@ def response_cost(counts, model, tier, prices):
     rates = prices["models"].get(model, {}).get(tier)
     if rates is None:
         return None
+    half_price_until = rates.get("half_price_until")
+    per_tokens = prices["per_tokens"]
+    if half_price_until and stamp < datetime.fromisoformat(half_price_until):
+        per_tokens *= 2
     rates = rates["long" if counts["input"] > prices["long_context_above"] else "short"]
     costs = {key: 0.0 for key in CATEGORIES}
     for key, rate in zip(prices["rate_order"], rates):
         if rate is None and counts[key]:
             return None
-        costs[key] = counts[key] * (rate or 0) / prices["per_tokens"]
+        costs[key] = counts[key] * (rate or 0) / per_tokens
     costs["input"] = costs["uncached"] + costs["cache_read"] + costs["cache_write"]
     costs["total"] = costs["input"] + costs["output"]
-    costs["reasoning"] = counts["reasoning"] * (rates[3] or 0) / prices["per_tokens"]
+    costs["reasoning"] = counts["reasoning"] * (rates[3] or 0) / per_tokens
     return costs
 
 
@@ -137,12 +141,12 @@ def read_usage(home, now=None):
                                     model = None
                                 if tier is not None and not isinstance(tier, str):
                                     tier = "unsupported"
-                                candidate = (usage, model, tier)
+                                candidate = (usage, model, tier, stamp)
                                 previous = responses.get(response_id)
                                 if previous and previous[0] != usage:
                                     problem("Conflicting copies of response usage were found.")
                                 if previous and any(a is not None and b is not None and a != b
-                                                    for a, b in zip(previous[1:], candidate[1:])):
+                                                    for a, b in zip(previous[1:3], candidate[1:3])):
                                     pricing_complete = False
                                     issues.add("Conflicting pricing metadata was found in copied responses.")
                                 # A copied history may omit its original turn context.
@@ -150,7 +154,7 @@ def read_usage(home, now=None):
                                     responses[response_id] = candidate
                                 else:
                                     responses[response_id] = (previous[0], previous[1] or model,
-                                                              previous[2] or tier)
+                                                              previous[2] or tier, previous[3])
                             except (ValueError, KeyError, TypeError):
                                 problem("Malformed or unsupported session records were skipped.")
                     if legacy_turns - recorded_turns:
@@ -158,7 +162,7 @@ def read_usage(home, now=None):
                 except OSError:
                     problem("Some session files are unreadable.")
 
-    for usage, model, tier in responses.values():
+    for usage, model, tier, stamp in responses.values():
         response = {}
         valid = True
         for key, field in FIELDS.items():
@@ -181,7 +185,7 @@ def read_usage(home, now=None):
                 unknown_counts.add("reasoning")
         for key in CATEGORIES:
             counts[key] += response[key]
-        cost = response_cost(response, model, tier, prices) if valid else None
+        cost = response_cost(response, model, tier, prices, stamp) if valid else None
         if cost is None:
             pricing_complete = False
             issues.add("Cost unavailable for some responses (model, tier, or token fields).")

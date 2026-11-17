@@ -166,8 +166,36 @@ class RollingUsageTests(unittest.TestCase):
         self.write([context(), record])
         self.assertAlmostEqual(self.read()["costs"]["total"], 0.36)
 
+    def test_gpt_6_2_pricing_across_tiers_and_contexts(self):
+        for model, short, long in [("gpt-6.2-astra", 2.124, 4.228016),
+                                   ("gpt-6.2-sol", 0.531, 1.057004)]:
+            for size, standard in [(272000, short), (272001, long)]:
+                for tier, multiplier in [(None, 1), ("batch", 0.5), ("fast", 2), ("ultrafast", 3)]:
+                    with self.subTest(model=model, size=size, tier=tier):
+                        self.write([context(model, tier),
+                                    response(input_tokens=size, cached_input_tokens=20000,
+                                             cache_write_input_tokens=30000, output_tokens=1000,
+                                             reasoning_output_tokens=0)])
+                        result = self.read()
+                        self.assertEqual(result["status"], "ok")
+                        self.assertAlmostEqual(result["costs"]["total"], standard * multiplier)
+
+    def test_gpt_6_2_ultrafast_promotion_uses_response_timestamp(self):
+        cutoff = datetime(2027, 3, 1, tzinfo=ZoneInfo("America/Los_Angeles"))
+        for model, total, reasoning in [("gpt-6.2-astra", 0.048, 0.02), ("gpt-6.2-sol", 0.012, 0.005)]:
+            for stamp, multiplier in [(cutoff - timedelta(seconds=1), 3), (cutoff, 6)]:
+                with self.subTest(model=model, stamp=stamp):
+                    self.write([context(model, "ultrafast"),
+                                response(stamp=stamp, input_tokens=1000, cached_input_tokens=0,
+                                         output_tokens=1000, reasoning_output_tokens=500)], modified=cutoff)
+                    result = tokens.read_usage(self.home, cutoff)
+                    self.assertEqual(result["status"], "ok")
+                    self.assertAlmostEqual(result["costs"]["total"], total * multiplier)
+                    self.assertAlmostEqual(result["costs"]["reasoning"], reasoning * multiplier)
+
     def test_unknown_model_tier_and_unpriced_cache_preserve_counts(self):
-        for model, tier, writes in [("gpt-reserve", None, 0), ("gpt-6.1-sol", "unknown", 0), ("gpt-5.5", None, 1)]:
+        for model, tier, writes in [("gpt-reserve", None, 0), ("gpt-6.1-sol", "unknown", 0),
+                                    ("gpt-6.2-sol", "flex", 0), ("gpt-5.5", None, 1)]:
             with self.subTest(model=model, tier=tier):
                 self.write([context(model, tier), response(cache_write_input_tokens=writes)])
                 result = self.read()

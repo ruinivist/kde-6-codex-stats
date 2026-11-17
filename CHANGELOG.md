@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.2] - GPT-6.2 pricing
+
+- Restore cost estimates for GPT-6.2 Sol and Astra responses.
+- Apply the Ultrafast promotional rate through February 28, 2027, Pacific time.
+
 ## [0.1.1] - Terra pricing
 
 - Add GPT-6.1 Terra pricing across service tiers and context sizes.
